@@ -1,0 +1,13 @@
+BUGS/FEATURES
+- better reset/recovery of ftdi/mpsse on start
+  (if the chip has data in buffers, etc)
+- allow idlestate to be the scanstate
+- allow more (all?) paths between states
+
+OPTIMIZATIONS
+- background reader thread or async read
+- queue multi-packet reads
+- double-buffer cmd buffer to avoid blocking after tx
+- prefer bitcommand over bytecommand for single-byte ios
+- merge the tms motion an end of xr_scan with that of the next scan or goto
+  - maybe hold the last bit from the scan and assemble against that...
