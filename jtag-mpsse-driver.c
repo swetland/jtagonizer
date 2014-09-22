@@ -37,7 +37,7 @@ static struct {
 static unsigned char mpsse_init[] = {
 	0x85, // loopback off
 	0x8a, // disable clock/5
-	0x86, 0x01, 0x00, // set divisor
+	0x86, 0x02, 0x00, // set divisor
 	0x80, 0xe8, 0xeb, // set low state and dir
 	0x82, 0x00, 0x00, // set high state and dir
 };
@@ -68,7 +68,6 @@ typedef struct {
 } JOP;
 
 #define CMD_MAX (16*1024)
-#define CMD_LEFT(n) (CMD_MAX - (n))
 
 struct JDRV {
 	struct libusb_device_handle *udev;
@@ -86,6 +85,10 @@ struct JDRV {
 	JOP op[8192];
 	u8 read_buffer[512];
 };
+
+static inline u32 cmd_avail(JDRV *d) {
+	return CMD_MAX - (d->next - d->cmd);
+}
 
 static int _jtag_setspeed(JDRV *d, int khz) {
 	return d->speed;
@@ -396,7 +399,7 @@ static int _jtag_scan_tms(JDRV *d, u32 obit,
 		fprintf(stderr, "jtag_scan_tms: invalid count %d\n", (int) count);
 		return (d->status = -1);
 	}
-	if ((d->next - d->cmd) > CMD_LEFT(8)) {
+	if (cmd_avail(d) < 4) {
 		if (_jtag_commit(d))
 			return (d->status = -1);
 	}
@@ -450,8 +453,10 @@ static int _jtag_scan_io(JDRV *d, u32 count, u8 *obits, u8 *ibits) {
 	// do as many bytemoves as possible first
 	// TODO: for exactly 1 byte, bitmove command is more efficient
 	while (bcount > 0) {
-		n = d->next - d->cmd;
-		if (n > CMD_LEFT(16)) {
+		n = cmd_avail(d);
+
+fprintf(stderr,"io bcount=%d n=%d\n",bcount,n);
+		if (n < 16) {
 			if (_jtag_commit(d))
 				return (d->status = -1);
 			continue;
@@ -482,7 +487,7 @@ static int _jtag_scan_io(JDRV *d, u32 count, u8 *obits, u8 *ibits) {
 	count = count & 7;
 	if (count == 0)
        		return 0;
-	if ((d->next - d->cmd) > CMD_LEFT(4)) {
+	if (cmd_avail(d) < 4) {
 		if (_jtag_commit(d))
 			return (d->status = -1);
 	}
