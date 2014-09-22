@@ -18,7 +18,7 @@
 
 #include "jtag-driver.h"
 
-#define TRACE_STATEMACHINE 1
+#define TRACE_STATEMACHINE 0
 
 // configuration and state or IR or DR
 typedef struct JREG {

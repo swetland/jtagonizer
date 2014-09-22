@@ -18,8 +18,13 @@
 
 #include "jtag-driver.h"
 
-#define TRACE_IO 1
-#define TRACE_DISASM 1
+// USB bulk xfer fails trying to queue > 8192...
+#define CMD_MAX (8*1024)
+
+#define TRACE_IO 0 
+#define TRACE_DIS 0 
+#define TRACE_USB 0 
+#define TRACE_TXN 0
 
 // FTDI MPSSE Device Info
 static struct {
@@ -37,7 +42,7 @@ static struct {
 static unsigned char mpsse_init[] = {
 	0x85, // loopback off
 	0x8a, // disable clock/5
-	0x86, 0x02, 0x00, // set divisor
+	0x86, 0x01, 0x00, // set divisor
 	0x80, 0xe8, 0xeb, // set low state and dir
 	0x82, 0x00, 0x00, // set high state and dir
 };
@@ -66,8 +71,6 @@ typedef struct {
 	u16 op;
 	u16 x;
 } JOP;
-
-#define CMD_MAX (16*1024)
 
 struct JDRV {
 	struct libusb_device_handle *udev;
@@ -180,11 +183,19 @@ static int ftdi_open(JDRV *d) {
 static int usb_bulk(struct libusb_device_handle *udev,
 	unsigned char ep, void *data, int len, unsigned timeout) {
 	int r, xfer;
+#if TRACE_USB
+	if (!(ep & 0x80))
+		dump("xmit", data, len);
+#endif
 	r = libusb_bulk_transfer(udev, ep, data, len, &xfer, timeout);
 	if (r < 0) {
 		fprintf(stderr,"bulk: error: %d\n", r);
 		return r;
 	}
+#if TRACE_USB
+	if (ep & 0x80)
+		dump("recv", data, xfer);
+#endif
 	return xfer;
 }
 
@@ -203,6 +214,7 @@ static int ftdi_read(JDRV *d, unsigned char *buffer, int count, int timeout) {
 		if (d->read_count > 0) {
 			memcpy(buffer, d->read_ptr, d->read_count);
 			count -= d->read_count;
+			buffer += d->read_count;
 			d->read_count = 0;
 		}
 		xfer = usb_bulk(d->udev, d->ep_in, d->read_buffer, d->read_size, 1000);
@@ -243,7 +255,7 @@ fail:
 	return -1;
 }
 
-#if TRACE_DISASM
+#if TRACE_DIS
 static void pbin(u32 val, u32 bits) {
 	u32 n;
 	for (n = 0; n < bits; n++) {
@@ -328,7 +340,9 @@ static int _jtag_commit(JDRV *d) {
 	JOP *op;
 	u8 *x;
 
+#if TRACE_TXN
 	fprintf(stderr, "jtag_commit: tx(%d) rx(%d)\n", n, (int) d->expected);
+#endif
 	if (d->status) {
 		// if we failed during prep, error out immediately
 		fprintf(stderr, "jtag_commit: pre-existing errors\n");
@@ -346,7 +360,7 @@ static int _jtag_commit(JDRV *d) {
 #if TRACE_IO
 	dump("tx", d->cmd, n);
 #endif
-#if TRACE_DISASM
+#if TRACE_DIS
 	dismpsse(d->cmd, n);
 #endif
 
@@ -455,7 +469,6 @@ static int _jtag_scan_io(JDRV *d, u32 count, u8 *obits, u8 *ibits) {
 	while (bcount > 0) {
 		n = cmd_avail(d);
 
-fprintf(stderr,"io bcount=%d n=%d\n",bcount,n);
 		if (n < 16) {
 			if (_jtag_commit(d))
 				return (d->status = -1);
