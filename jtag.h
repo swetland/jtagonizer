@@ -52,6 +52,10 @@ void jtag_set_ir_postfix(JTAG *jtag, unsigned count, const void *bits);
 void jtag_set_dr_prefix(JTAG *jtag, unsigned count, const void *bits);
 void jtag_set_dr_postfix(JTAG *jtag, unsigned count, const void *bits);
 
+// clear all prefix/postfix patterns and return to default
+// idle states
+void jtag_clear_state(JTAG *jtag);
+
 // Move jtag state machine from current state to new state.
 // Moving to JTAG_RESET will work even if current state
 // is out of sync.
@@ -68,5 +72,26 @@ void jtag_dr_rd(JTAG *jtag, unsigned count, void *rbits);
 void jtag_dr_io(JTAG *jtag, unsigned count, const void *wbits, void *rbits);
 
 int jtag_commit(JTAG *jtag);
+
+typedef struct {
+	unsigned idcode;
+	unsigned idmask;
+	unsigned irsize;
+	const char *name;
+} JTAG_INFO;
+
+// reset the bus and probe it
+// returns number of devices detected, negative on error
+int jtag_enumerate(JTAG *jtag);
+
+// get information about the nth device on the chain
+JTAG_INFO *jtag_get_nth_device(JTAG *jtag, int n);
+
+// configure for communication with a single device
+// will setup ir/dr prefix and postfix
+int jtag_select_device(JTAG *jtag, unsigned idcode);
+
+// select by position in scan chain
+int jtag_select_device_nth(JTAG *jtag, int n);
 
 #endif
