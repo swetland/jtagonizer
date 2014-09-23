@@ -17,10 +17,6 @@
 
 #include "jtag.h"
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-
 typedef struct JDRV JDRV;
 
 typedef struct {

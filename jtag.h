@@ -15,6 +15,11 @@
 #ifndef _JTAG_
 #define _JTAG_
 
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef unsigned long u64;
+
 #define JTAG_RESET	0
 #define JTAG_IDLE	1
 #define JTAG_DRSELECT	2
