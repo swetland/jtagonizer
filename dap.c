@@ -238,30 +238,29 @@ void dumptable(DAP *dap, u32 n, u32 base) {
 	u32 x, addr;
 	int i;
 
-	printf("TABLE @ %08x\n", base);
+	printf("TABLE   @%08x ", base);
 	if (readinfo(dap, n, addr, &cid, &pid0, &pid1)) {
-		printf("    <error reading cid & pid>\n");
+		printf("<error reading cid & pid>\n");
 		return;
 	}
 	if (dap_mem_rd32(dap, n, base + 0xFCC, &memtype)) {
-		printf("    <error reading memtype>\n");
+		printf("<error reading memtype>\n");
 		return;
 	}
-	printf("    CID %08x  PID %08x %08d  %dKB%s\n", cid, pid1, pid0,
+	printf("CID %08x  PID %08x %08x  %dKB%s\n", cid, pid1, pid0,
 		4 * (1 + ((pid1 & 0xF0) >> 4)),
 		(memtype & 1) ? "  SYSMEM": "");
 	for (i = 0; i < 128; i++) {
 		if (dap_mem_rd32(dap, n, base + i * 4, &x)) break;
 		if (x == 0) break;
-		addr = base + (x & 0xFFFFF000);
-		printf("    %02d: @%08x%s%s\n", i, addr,
-			(x & 1) ? " PRESENT" : "", (x & 2) ? " 32bit" : " 16bit");
 		if ((x & 3) != 3) continue;
+		addr = base + (x & 0xFFFFF000);
 		if (readinfo(dap, n, addr, &cid, &pid0, &pid1)) {
 			printf("    <error reading cid & pid>\n");
 			continue;
 		}
-		printf("        CID %08x  PID %08x %08d  %dKB%s\n", cid, pid1, pid0,
+		printf("    %02d: @%08x CID %08x  PID %08x %08x  %dKB\n",
+			i, addr, cid, pid1, pid0,
 			4 * (1 + ((pid1 & 0xF0) >> 4)));
 		if (((cid >> 12) & 0xF) == 1) {
 			dumptable(dap, n, addr);
@@ -310,7 +309,7 @@ int main(int argc, char **argv) {
 #if 1 
 	for (n = 0; n < 8; n++) {
 		x = 0xefefefef;
-		dap_mem_rd32(dap, 0, n*4, &x);
+		dap_mem_rd32(dap, 1, 0x80090FE0 + n*4, &x);
 		printf("%08x: %08x\n", n*4, x);
 	}
 #endif
