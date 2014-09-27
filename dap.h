@@ -12,8 +12,8 @@
 #define XPACC_STATUS(n)		((n) & 0x3)
 #define XPACC_WAIT		0x1
 #define XPACC_OK		0x2
-#define XPACC_RD(n)		(0x1 | (((n) >> 1) & 6))
-#define XPACC_WR(n)		(0x0 | (((n) >> 1) & 6))
+#define XPACC_RD(a)		(0x1 | (((a) >> 1) & 6))
+#define XPACC_WR(a,v)		((((u64)(v)) << 3) | (0x0 | (((a) >> 1) & 6)))
 
 /* DP addresses */
 #define DPACC_RESERVED		0x0

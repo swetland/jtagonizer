@@ -1,7 +1,7 @@
 
-CFLAGS := -Wall -O2 -g
+CFLAGS := -Wall -O0 -g 
 
-LIBS := -lusb-1.0
+LIBS := -lusb-1.0 -lrt
 
 
 all: jtag dap
