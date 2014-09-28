@@ -19,6 +19,9 @@
 #include "jtag.h"
 #include "dap.h"
 
+#define CSW_ERRORS (DPCSW_STICKYERR | DPCSW_STICKYCMP | DPCSW_STICKYORUN)
+#define CSW_ENABLES (DPCSW_CSYSPWRUPREQ | DPCSW_CDBGPWRUPREQ | DPCSW_ORUNDETECT)
+
 #include <time.h>
 static u64 NOW(void) {
 	struct timespec ts;
@@ -28,9 +31,20 @@ static u64 NOW(void) {
 
 typedef struct {
 	JTAG *jtag;
+	u32 cached_ir;
 } DAP;
 
 static void q_dap_ir_wr(DAP *dap, u32 ir) {
+	if (dap->cached_ir != ir) {
+		dap->cached_ir = ir;
+		jtag_ir_wr(dap->jtag, 4, &ir);
+	}
+}
+
+// force ir write even if redundant
+// used for a timing hack
+static void _q_dap_ir_wr(DAP *dap, u32 ir) {
+	dap->cached_ir = ir;
 	jtag_ir_wr(dap->jtag, 4, &ir);
 }
 
@@ -50,6 +64,37 @@ static void q_dap_abort(DAP *dap) {
 	u = 8;
 	jtag_ir_wr(dap->jtag, 4, &x);
 	jtag_dr_wr(dap->jtag, 35, &u);
+	dap->cached_ir = 0xFFFFFFFF;
+}
+
+// queue a DPCSW status query, commit jtag txn
+static int dap_commit(DAP *dap) {
+	u64 a, b;
+	q_dap_ir_wr(dap, DAP_IR_DPACC);
+	q_dap_dr_io(dap, 35, XPACC_RD(DPACC_CSW), &a);
+	q_dap_dr_io(dap, 35, XPACC_RD(DPACC_RDBUFF), &b);
+	dap->cached_ir = 0xFFFFFFFF;
+	if (jtag_commit(dap->jtag)) {
+		return -1;
+	}
+	if (XPACC_STATUS(a) != XPACC_OK) {
+		fprintf(stderr, "dap: invalid txn status\n");
+		return -1;
+	}
+	if (XPACC_STATUS(b) != XPACC_OK) {
+		fprintf(stderr, "dap: cannot read status\n");
+		return -1;
+	}
+	b >>= 3;
+	if (b & DPCSW_STICKYORUN) {
+		fprintf(stderr, "dap: overrun\n");
+		return -1;
+	}
+	if (b & DPCSW_STICKYERR) {
+		fprintf(stderr, "dap: error\n");
+		return -1;
+	}
+	return 0;
 }
 
 int dap_dp_rd(DAP *dap, u32 addr, u32 *val) {
@@ -57,10 +102,7 @@ int dap_dp_rd(DAP *dap, u32 addr, u32 *val) {
 	q_dap_ir_wr(dap, DAP_IR_DPACC);
 	q_dap_dr_io(dap, 35, XPACC_RD(addr), NULL);
 	q_dap_dr_io(dap, 35, XPACC_RD(DPACC_RDBUFF), &u);
-	if (jtag_commit(dap->jtag)) {
-		return -1;
-	}
-	if (XPACC_STATUS(u) != XPACC_OK) {
+	if (dap_commit(dap)) {
 		return -1;
 	}
 	*val = u >> 3;
@@ -75,75 +117,49 @@ static void q_dap_dp_wr(DAP *dap, u32 addr, u32 val) {
 
 int dap_dp_wr(DAP *dap, u32 addr, u32 val) {
 	q_dap_dp_wr(dap, addr, val);
-	return jtag_commit(dap->jtag);
+	return dap_commit(dap);
 }
 
-/* TODO: cache state, check errors */
 int dap_ap_rd(DAP *dap, u32 apnum, u32 addr, u32 *val) {
 	u64 u;
+	q_dap_ir_wr(dap, DAP_IR_DPACC);
 	q_dap_dp_wr(dap, DPACC_SELECT, DPSEL_APSEL(apnum) | DPSEL_APBANKSEL(addr));
 	q_dap_ir_wr(dap, DAP_IR_APACC);
 	q_dap_dr_io(dap, 35, XPACC_RD(addr), NULL);
 	q_dap_ir_wr(dap, DAP_IR_DPACC);
 	q_dap_dr_io(dap, 35, XPACC_RD(DPACC_RDBUFF), &u);
-	if (jtag_commit(dap->jtag)) {
-		return -1;
-	}
-	if (XPACC_STATUS(u) != XPACC_OK) {
+	// TODO: redundant ir wr
+	if (dap_commit(dap)) {
 		return -1;
 	}
 	*val = (u >> 3);
 	return 0;
 }
 
-int q_dap_ap_wr(DAP *dap, u32 apnum, u32 addr, u32 val) {
+void q_dap_ap_wr(DAP *dap, u32 apnum, u32 addr, u32 val) {
+	q_dap_ir_wr(dap, DAP_IR_DPACC);
 	q_dap_dp_wr(dap, DPACC_SELECT, DPSEL_APSEL(apnum) | DPSEL_APBANKSEL(addr));
 	q_dap_ir_wr(dap, DAP_IR_APACC);
 	q_dap_dr_io(dap, 35, XPACC_WR(addr, val), NULL);
-	//q_dap_ir_wr(dap, DAP_IR_DPACC);
-	//q_dap_dr_io(dap, 35, XPACC_RD(DPACC_RDBUFF), &u);
-	return 0;
 }
 
 int dap_mem_wr32(DAP *dap, u32 n, u32 addr, u32 val) {
 	if (addr & 3)
 		return -1;
-	if (q_dap_ap_wr(dap, n, APACC_TAR, addr))
-		return -1;
-	if (q_dap_ap_wr(dap, n, APACC_DRW, val))
-		return -1;
-	return jtag_commit(dap->jtag);
+	q_dap_ap_wr(dap, n, APACC_CSW,
+		APCSW_DBGSWEN | APCSW_INCR_NONE | APCSW_SIZE32);
+	q_dap_ap_wr(dap, n, APACC_TAR, addr);
+	q_dap_ap_wr(dap, n, APACC_DRW, val);
+	return dap_commit(dap);
 }
 
 int dap_mem_rd32(DAP *dap, u32 n, u32 addr, u32 *val) {
 	if (addr & 3)
 		return -1;
-	if (q_dap_ap_wr(dap, n, APACC_TAR, addr))
-		return -1;
+	q_dap_ap_wr(dap, n, APACC_TAR, addr);
 	if (dap_ap_rd(dap, n, APACC_DRW, val))
 		return -1;
 	return 0;
-}
-
-int dap_mem_wr32x(DAP *dap, u32 n, u32 addr, u32 *val, u32 count) {
-#if 0
-	q_dap_ap_wr
-	dap_ap_wr(dap, 0, APACC_CSW, APCSW_DBGSWEN | APCSW_INCR_SINGLE | APCSW_SIZE32);
-	dap_ap_wr(dap, 0xf0000000, APACC_TAR, n);
-	dap_ap_wr_x(dap, 0, APACC_DRW, val);
-	u = XPACC_WR(APACC_DRW);
-	u |= (((u64) val) << 3);
-	for (i = 0; i < 1024; i++) {
-	for (n = 0; n < 1024; n++) {
-		jtag_dr_wr(dap->jtag, 35, &u);
-	}
-	jtag_commit(dap->jtag);
-	}
-	dap_ap_rd(dap, 0, APACC_CSW, &x);
-	dap_dp_rd(dap, DPACC_CSW, &y);
-	fprintf(stderr, "APCSW=%08x DPCSW=%08x\n", x, y);
-#endif
-	return -1;
 }
 
 int dap_mem_read(DAP *dap, u32 apnum, u32 addr, void *data, u32 len) {
@@ -163,16 +179,19 @@ int dap_mem_read(DAP *dap, u32 apnum, u32 addr, void *data, u32 len) {
 		if (xfer > len) {
 			xfer = len;
 		}
-		q_dap_ap_wr(dap, apnum, APACC_CSW, APCSW_DBGSWEN | APCSW_INCR_SINGLE | APCSW_SIZE32);
+		q_dap_ap_wr(dap, apnum, APACC_CSW,
+			APCSW_DBGSWEN | APCSW_INCR_SINGLE | APCSW_SIZE32);
 		q_dap_dr_io(dap, 35, XPACC_WR(APACC_TAR, addr), NULL);
 		// read txn will be returned on the next txn
 		q_dap_dr_io(dap, 35, XPACC_RD(APACC_DRW), NULL);
+		_q_dap_ir_wr(dap, DAP_IR_APACC); // HACK, timing
 		for (n = 0; n < (xfer-4); n += 4) {
 			q_dap_dr_io(dap, 35, XPACC_RD(APACC_DRW), &scratch[n/4]);
+			_q_dap_ir_wr(dap, DAP_IR_APACC); // HACK, timing
 		}
 		// dummy read of TAR to pick up last read value
 		q_dap_dr_io(dap, 35, XPACC_RD(APACC_TAR), &scratch[n/4]);
-		if (jtag_commit(dap->jtag)) {
+		if (dap_commit(dap)) {
 			return -1;
 		}
 		for (n = 0; n < xfer; n += 4) {
@@ -209,11 +228,12 @@ int dap_mem_write(DAP *dap, u32 apnum, u32 addr, void *data, u32 len) {
 		q_dap_ap_wr(dap, apnum, APACC_CSW, APCSW_DBGSWEN | APCSW_INCR_SINGLE | APCSW_SIZE32);
 		q_dap_dr_io(dap, 35, XPACC_WR(APACC_TAR, addr), NULL);
 		for (n = 0; n < xfer; n += 4) {
+			_q_dap_ir_wr(dap, DAP_IR_APACC); // HACK, timing
 			q_dap_dr_io(dap, 35, XPACC_WR(APACC_DRW, *x++), NULL);
 		}
-		if (jtag_commit(dap->jtag)) {
+		if (dap_commit(dap)) {
 			return -1;
-		}
+		} 
 		len -= xfer;
 		addr += xfer;
 	}
@@ -224,6 +244,7 @@ DAP *dap_init(JTAG *jtag) {
 	DAP *dap = malloc(sizeof(DAP));
 	memset(dap, 0, sizeof(DAP));
 	dap->jtag = jtag;
+	dap->cached_ir = 0xFFFFFFFF;
 	return dap;
 }
 
@@ -235,14 +256,12 @@ int dap_attach(DAP *dap) {
 	q_dap_abort(dap);
 
 	// attempt to power up and clear errors
-	for (n = 0; n < 100; n++) {
-		if (dap_dp_wr(dap, DPACC_CSW, 
-			DPCSW_CSYSPWRUPREQ | DPCSW_CDBGPWRUPREQ |
-			DPCSW_STICKYERR | DPCSW_STICKYCMP | DPCSW_STICKYORUN))
+	for (n = 0; n < 10; n++) {
+		if (dap_dp_wr(dap, DPACC_CSW, CSW_ERRORS | CSW_ENABLES))
 			continue;
 		if (dap_dp_rd(dap, DPACC_CSW, &x))
 			continue;
-		if (x & (DPCSW_STICKYERR | DPCSW_STICKYCMP | DPCSW_STICKYORUN))
+		if (x & CSW_ERRORS)
 			continue;
 		if (!(x & DPCSW_CSYSPWRUPACK))
 			continue;
@@ -351,20 +370,18 @@ int main(int argc, char **argv) {
 #if 1 
 	for (n = 0; n < 8; n++) {
 		x = 0xefefefef;
-		//dap_mem_rd32(dap, 1, 0x80090FE0 + n*4, &x);
 		dap_mem_rd32(dap, 0, 0x00000000 + n*4, &x);
 		printf("%08x: %08x\n", n*4, x);
 	}
 #endif
 
 #if 0
-	//memset(DATA, 0xEE, sizeof(DATA));
 	for (n = 0; n < 1024*1024; n++) DATA[n] = n;
-	//for (n = 0; n < 10; n++)
+	for (n = 0; n < 10; n++)
 		dap_mem_write(dap, 0, 0, DATA, 192*1024);
 #endif
 
-#if 0
+#if 0 
 	if (dap_mem_read(dap, 0, 0, DATA, 4096) == 0) {
 		for (n = 0; n < 16; n++) printf("%08x ",DATA[n]);
 		printf("\n");
