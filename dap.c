@@ -16,8 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "jtag.h"
 #include "dap.h"
+#include "dap-registers.h"
 
 #define CSW_ERRORS (DPCSW_STICKYERR | DPCSW_STICKYCMP | DPCSW_STICKYORUN)
 #define CSW_ENABLES (DPCSW_CSYSPWRUPREQ | DPCSW_CDBGPWRUPREQ | DPCSW_ORUNDETECT)
@@ -29,10 +29,11 @@ static u64 NOW(void) {
 	return (((u64) ts.tv_sec) * ((u64)1000000000)) + ((u64) ts.tv_nsec);
 }
 
-typedef struct {
+struct DAP {
 	JTAG *jtag;
+	u32 device_id;
 	u32 cached_ir;
-} DAP;
+};
 
 static void q_dap_ir_wr(DAP *dap, u32 ir) {
 	if (dap->cached_ir != ir) {
@@ -240,17 +241,27 @@ int dap_mem_write(DAP *dap, u32 apnum, u32 addr, void *data, u32 len) {
 	return 0;
 }
 
-DAP *dap_init(JTAG *jtag) {
+DAP *dap_init(JTAG *jtag, u32 id) {
 	DAP *dap = malloc(sizeof(DAP));
 	memset(dap, 0, sizeof(DAP));
 	dap->jtag = jtag;
 	dap->cached_ir = 0xFFFFFFFF;
+	dap->device_id = id;
 	return dap;
 }
 
 int dap_attach(DAP *dap) {
 	unsigned n;
 	u32 x;
+
+	if (jtag_enumerate(dap->jtag) < 0) {
+		fprintf(stderr, "dap: jtag enumeration failed\n");
+		return -1;
+	}
+	if (jtag_select_device(dap->jtag, dap->device_id)) {
+		fprintf(stderr, "dap: cannot find device on chain\n");
+		return -1;
+	}
 
 	// make sure we abort any ongoing transactions first
 	q_dap_abort(dap);
@@ -346,49 +357,3 @@ int dap_probe(DAP *dap) {
 	return 0;
 }
 
-u32 DATA[1024*1024];
-
-int main(int argc, char **argv) {
-	JTAG *jtag;
-	DAP *dap;
-	unsigned n;
-	u32 x;
-
-	if (jtag_mpsse_open(&jtag)) return -1;
-	if (jtag_enumerate(jtag) < 0) return -1;
-	if (jtag_select_device(jtag, 0x4ba00477)) return -1;
-
-	dap = dap_init(jtag);
-	if (dap_attach(dap))
-		return -1;
-
-	dap_dp_rd(dap, DPACC_CSW, &x);
-	printf("DPCSW=%08x\n", x);
-
-	dap_probe(dap);
-
-#if 1 
-	for (n = 0; n < 8; n++) {
-		x = 0xefefefef;
-		dap_mem_rd32(dap, 0, 0x00000000 + n*4, &x);
-		printf("%08x: %08x\n", n*4, x);
-	}
-#endif
-
-#if 0
-	for (n = 0; n < 1024*1024; n++) DATA[n] = n;
-	for (n = 0; n < 10; n++)
-		dap_mem_write(dap, 0, 0, DATA, 192*1024);
-#endif
-
-#if 0 
-	if (dap_mem_read(dap, 0, 0, DATA, 4096) == 0) {
-		for (n = 0; n < 16; n++) printf("%08x ",DATA[n]);
-		printf("\n");
-	}
-	//dap_mem_wr32(dap, 0, 0x10, 0x805038a1);
-	dap_dp_rd(dap, DPACC_CSW, &x);
-	printf("DPCSW=%08x\n", x);
-#endif
-	return 0;
-}
