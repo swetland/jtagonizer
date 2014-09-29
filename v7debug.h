@@ -34,14 +34,16 @@
 #define DBGPID0		0xFD0
 #define DBGCID0		0xFF0
 
-#define DSCR_RXFULL	(1 << 31)	// (cleared on read)
-#define DSCR_TXFULL	(1 << 30)	// (cleared on read)
+#define DSCR_RXFULL	(1 << 30)	// (cleared on read)
+#define DSCR_TXFULL	(1 << 29)	// (cleared on read)
 #define DSCR_PIPEADV	(1 << 25)	// (cleared on DRCR write) set on instr exec
 #define DSCR_INSTRCOMPL	(1 << 24)	// 0 if cpu executing from ITR
 #define DSCR_DCC_MASK	(3 << 20)	// DTR access mode
 #define DSCR_DCC_NBLOCK	(0 << 20)
 #define DSCR_DCC_STALL	(1 << 20)
 #define DSCR_DCC_FAST	(2 << 20)
+#define DSCR_ADADISCARD	(1 << 19)	// ro: processor ignores asynch aborts
+					// set in debug state, DSCR_ADABORT instead
 #define DSCR_M_DBG_EN	(1 << 15)	// monitor debug enabled
 #define DSCR_H_DBG_EN	(1 << 14)	// halting debug enabled
 #define DSCR_ITR_EN	(1 << 13)	// instruction execution enabled
