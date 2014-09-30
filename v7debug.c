@@ -126,6 +126,8 @@ static int dexec(V7DEBUG *debug, u32 instr) {
 }
 
 #define ARM_DSB			0xEE070F9A
+#define ARM_ICIALLU		0xEE070F15
+#define ARM_ISB			0xEE070F95
 #define ARM_MOV_DCC_Rx(x)	(0xEE000E15 | ((x) << 12)) // Rx -> DCC
 #define ARM_MOV_Rx_DCC(x)	(0xEE100E15 | ((x) << 12)) // DCC -> Rx
 #define ARM_MOV_R0_PC		0xE1A0000F
@@ -241,6 +243,9 @@ int debug_detach(V7DEBUG *debug) {
 
 	dccwr(debug, debug->save_r1);
 	dexec(debug, ARM_MOV_Rx_DCC(1));
+
+	dexec(debug, ARM_ICIALLU);
+	dexec(debug, ARM_ISB);
 
 	dwr(debug, DBGDSCR, 0);
 	dwr(debug, DBGDRCR, DRCR_CLR_EXC);
