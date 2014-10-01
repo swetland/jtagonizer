@@ -16,12 +16,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <unistd.h>
-#include <fcntl.h>
-
 #include "jtag.h"
 #include "dap.h"
 #include "v7debug.h"
+
+#include "v7debug-registers.h"
 
 // CPSR bits
 #define ARM_N		(1 << 31)
@@ -44,8 +43,6 @@
 #define ARM_M_ABT	0x17
 #define ARM_M_UND	0x1B
 #define ARM_M_SYS	0x1F
-
-typedef struct V7DEBUG V7DEBUG;
 
 #define STATE_IDLE	0
 #define STATE_HALTED	1
@@ -178,10 +175,6 @@ int debug_attach(V7DEBUG *debug) {
 		return -1;
 	}
 
-	if (dap_attach(debug->dap)) {
-		return -1;
-	}
-
 	drd(debug, DBGDSCR, &x);
 	if (x & DSCR_HALTED) {
 		fprintf(stderr, "debug: warning, processor already halted\n");
@@ -273,53 +266,3 @@ int debug_reg_dump(V7DEBUG *debug) {
 	printf("cpsr: %08x\n", r[16]);
 	return 0;
 }
-
-#define ZYNQ_DEBUG0_APN		1
-#define ZYNQ_DEBUG0_BASE	0x80090000
-#define ZYNQ_DEBUG1_APN		1
-#define ZYNQ_DEBUG1_BASE	0x80092000
-
-void *loadfile(const char *fn, u32 *sz) {
-	int fd;
-	off_t end;
-	void *data = NULL;
-	if ((fd = open(fn, O_RDONLY)) < 0) return NULL;
-	if ((end = lseek(fd, 0, SEEK_END)) < 0) goto oops;
-	if (lseek(fd, 0, SEEK_SET) < 0) goto oops;
-	if ((data = malloc(end + 4)) == NULL) goto oops;
-	if (read(fd, data, end) != end) goto oops;
-	close(fd);
-	*sz = end;
-	return data;
-
-oops:
-	free(data);
-	close(fd);
-	return NULL;
-}
-
-int main(int argc, char **argv) {
-	JTAG *jtag;
-	DAP *dap;
-	V7DEBUG *debug;
-	void *data;
-	u32 sz;
-
-	if (jtag_mpsse_open(&jtag)) return -1;
-	if ((dap = dap_init(jtag, 0x4ba00477)) == NULL) return -1;
-	if ((debug = debug_init(dap, ZYNQ_DEBUG0_APN, ZYNQ_DEBUG0_BASE)) == NULL) return -1;
-	if (debug_attach(debug)) return -1;
-
-	debug_reg_dump(debug);
-
-	if (argc == 2) {
-		if ((data = loadfile(argv[1], &sz))) {
-			dap_mem_write(dap, 0, 0, data, sz);
-			debug_reg_wr(debug, 15, 0);
-		}
-	}
-
-	debug_detach(debug);
-	return 0;
-}
-
