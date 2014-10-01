@@ -103,7 +103,10 @@ int dap_dp_rd(DAP *dap, u32 addr, u32 *val) {
 	q_dap_ir_wr(dap, DAP_IR_DPACC);
 	q_dap_dr_io(dap, 35, XPACC_RD(addr), NULL);
 	q_dap_dr_io(dap, 35, XPACC_RD(DPACC_RDBUFF), &u);
-	if (dap_commit(dap)) {
+	if (jtag_commit(dap->jtag)) {
+		return -1;
+	}
+	if (XPACC_STATUS(u) != XPACC_OK) {
 		return -1;
 	}
 	*val = u >> 3;
@@ -118,7 +121,7 @@ static void q_dap_dp_wr(DAP *dap, u32 addr, u32 val) {
 
 int dap_dp_wr(DAP *dap, u32 addr, u32 val) {
 	q_dap_dp_wr(dap, addr, val);
-	return dap_commit(dap);
+	return jtag_commit(dap->jtag);
 }
 
 int dap_ap_rd(DAP *dap, u32 apnum, u32 addr, u32 *val) {
@@ -357,3 +360,14 @@ int dap_probe(DAP *dap) {
 	return 0;
 }
 
+int dap_reset(DAP *dap) {
+	u32 x;
+	if (dap_dp_wr(dap, DPACC_CSW, CSW_ENABLES | DPCSW_CDBGRSTREQ)) {
+		return -1;
+	}
+	if (dap_dp_rd(dap, DPACC_CSW, &x)) {
+		return -1;
+	}
+	printf("%08x\n", x);
+	return 0;
+}

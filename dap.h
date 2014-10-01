@@ -21,4 +21,6 @@ DAP *dap_init(JTAG *jtag, u32 jtag_device_id);
 
 int dap_attach(DAP *dap);
 
+int dap_reset(DAP *dap);
+
 #endif
