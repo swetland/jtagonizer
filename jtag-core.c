@@ -187,9 +187,6 @@ static u32 jtag_plot(u32 from, u32 to, u8 **bits) {
 	fprintf(stderr,"jtag_plot: move from %s to %s\n",
 			JSTATE[from], JSTATE[to]);
 #endif
-	if (from == to) {
-		return 0;
-	}
 	switch (from) {
 	case JTAG_RESET:
 		if (to == JTAG_IDLE) JPATH(0x00, 1); // 0
@@ -220,6 +217,8 @@ static u32 jtag_plot(u32 from, u32 to, u8 **bits) {
 		break;
 	}
 	if (to == JTAG_RESET) JPATH(0x3F, 6); // 111111
+
+	if (from == to) return 0;
 
 	fprintf(stderr,"jtag_plot: cannot move from %s to %s\n",
 			JSTATE[from], JSTATE[to]);
