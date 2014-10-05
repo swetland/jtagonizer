@@ -1,0 +1,19 @@
+
+JTAGONIZER * Yet Another JTAG Tool
+
+This is a set of tools for talking to hardware over JTAG, currently
+supporting the popular FTDI 2232H MPSSE devices for transport.  It
+does have a "driver abstraction" with the intent to support other
+transports someday, but only the mpsse driver exists right now.
+
+zynq - Xilinx Zynq A9 downloader
+--------------------------------
+zynq reset            - reboot the chip
+zynq regs             - briefly stop both CPUs and report their state
+zynq run <image>      - halt CPU0, download image to 0 (OCR), resume pc=0
+
+fpga - Xilinx 7-Series FPGA downloader
+--------------------------------------
+fpga                  - print the status register
+fpga <bitfile>        - reset part and download bitfile
+
