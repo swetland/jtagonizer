@@ -187,6 +187,9 @@ static u32 jtag_plot(u32 from, u32 to, u8 **bits) {
 	fprintf(stderr,"jtag_plot: move from %s to %s\n",
 			JSTATE[from], JSTATE[to]);
 #endif
+	if (from == to) {
+		return 0;
+	}
 	switch (from) {
 	case JTAG_RESET:
 		if (to == JTAG_IDLE) JPATH(0x00, 1); // 0
@@ -230,6 +233,20 @@ void jtag_goto(JTAG *jtag, unsigned state) {
 	if (mcount != 0) {
 		_scan_tms(0, mcount, mbits, 0, 0);
 		jtag->state = state;
+	}
+}
+
+void jtag_idle(JTAG *jtag, unsigned count) {
+	unsigned zero = 0;
+	jtag_goto(jtag, JTAG_IDLE);
+	while (count > 0) {
+		if (count > 6) {
+			_scan_tms(0, 6, (void*) &zero, 0, 0);
+			count -= 6;
+		} else {
+			_scan_tms(0, count, (void*) &zero, 0, 0);
+			count = 0;
+		}
 	}
 }
 

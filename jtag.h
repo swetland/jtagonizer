@@ -76,6 +76,9 @@ void jtag_dr_wr(JTAG *jtag, unsigned count, const void *wbits);
 void jtag_dr_rd(JTAG *jtag, unsigned count, void *rbits);
 void jtag_dr_io(JTAG *jtag, unsigned count, const void *wbits, void *rbits);
 
+// Move to IDLE and stay there for count clocks
+void jtag_idle(JTAG *jtag, unsigned count);
+
 int jtag_commit(JTAG *jtag);
 
 typedef struct {
