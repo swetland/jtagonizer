@@ -24,12 +24,34 @@
 
 static JTAG_INFO LIBRARY[] = {
 	{ 0x4ba00477, 0xFFFFFFFF, 4, "Cortex A9", "ARM A9" },
-	{ ZYNQID(0x02), ZYNQMASK, 6, "xc7x010", "Xilinx 7" },
-	{ ZYNQID(0x1b), ZYNQMASK, 6, "xc7x015", "Xilinx 7" },
-	{ ZYNQID(0x07), ZYNQMASK, 6, "xc7x020", "Xilinx 7" },
-	{ ZYNQID(0x0c), ZYNQMASK, 6, "xc7x030", "Xilinx 7" },
-	{ ZYNQID(0x11), ZYNQMASK, 6, "xc7x045", "Xilinx 7" },
-	{ 0x13631093, 0xFFFFFFFF, 6, "xc7a100t", "Xilinx 7" },
+// Zynq 7000
+	{ ZYNQID(0x02), ZYNQMASK, 6, "XC7X010", "Xilinx 7" },
+	{ ZYNQID(0x1b), ZYNQMASK, 6, "XC7X015", "Xilinx 7" },
+	{ ZYNQID(0x07), ZYNQMASK, 6, "XC7X020", "Xilinx 7" },
+	{ ZYNQID(0x0c), ZYNQMASK, 6, "XC7X030", "Xilinx 7" },
+	{ ZYNQID(0x11), ZYNQMASK, 6, "XC7X045", "Xilinx 7" },
+// Artix-7
+	{ 0x0362D093, 0x0FFFFFFF, 6, "XC7A35T", "Xilinx 7" },
+	{ 0x0362C093, 0x0FFFFFFF, 6, "XC7A50T", "Xilinx 7" },
+	{ 0x03632093, 0x0FFFFFFF, 6, "XC7A75T", "Xilinx 7" },
+	{ 0x03631093, 0x0FFFFFFF, 6, "XC7A100T", "Xilinx 7" },
+	{ 0x03636093, 0x0FFFFFFF, 6, "XC7A200T", "Xilinx 7" },
+// Kintex-7
+	{ 0x03647093, 0x0FFFFFFF, 6, "XC7K70T", "Xilinx 7" },
+	{ 0x0364C093, 0x0FFFFFFF, 6, "XC7K160T", "Xilinx 7" },
+	{ 0x03651093, 0x0FFFFFFF, 6, "XC7K325T", "Xilinx 7" },
+	{ 0x03747093, 0x0FFFFFFF, 6, "XC7K355T", "Xilinx 7" },
+	{ 0x03656093, 0x0FFFFFFF, 6, "XC7K410T", "Xilinx 7" },
+	{ 0x03752093, 0x0FFFFFFF, 6, "XC7K420T", "Xilinx 7" },
+	{ 0x03751093, 0x0FFFFFFF, 6, "XC7K480T", "Xilinx 7" },
+// Virtex-7 (only parts with 6bit IR)
+	{ 0x03671093, 0x0FFFFFFF, 6, "XC7VT585", "Xilinx 7" },
+	{ 0x03667093, 0x0FFFFFFF, 6, "XC7VX330T", "Xilinx 7" },
+	{ 0x03682093, 0x0FFFFFFF, 6, "XC7VX415T", "Xilinx 7" },
+	{ 0x03687093, 0x0FFFFFFF, 6, "XC7VX485T", "Xilinx 7" },
+	{ 0x03692093, 0x0FFFFFFF, 6, "XC7VX550T", "Xilinx 7" },
+	{ 0x03691093, 0x0FFFFFFF, 6, "XC7VX690T", "Xilinx 7" },
+	{ 0x03696093, 0x0FFFFFFF, 6, "XC7VX980T", "Xilinx 7" },
 };
 
 JTAG_INFO *jtag_lookup_device(unsigned idcode) {
