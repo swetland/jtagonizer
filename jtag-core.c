@@ -23,13 +23,13 @@
 #define ZYNQMASK	0x0FFFFFFF
 
 static JTAG_INFO LIBRARY[] = {
-	{ 0x4ba00477, 0xFFFFFFFF, 4, "Cortex A9" },
-	{ ZYNQID(0x02), ZYNQMASK, 6, "xc7x010" },
-	{ ZYNQID(0x1b), ZYNQMASK, 6, "xc7x015" },
-	{ ZYNQID(0x07), ZYNQMASK, 6, "xc7x020" },
-	{ ZYNQID(0x0c), ZYNQMASK, 6, "xc7x030" },
-	{ ZYNQID(0x11), ZYNQMASK, 6, "xc7x045" },
-	{ 0x13631093, 0xFFFFFFFF, 6, "xc7a100t" },
+	{ 0x4ba00477, 0xFFFFFFFF, 4, "Cortex A9", "ARM A9" },
+	{ ZYNQID(0x02), ZYNQMASK, 6, "xc7x010", "Xilinx 7" },
+	{ ZYNQID(0x1b), ZYNQMASK, 6, "xc7x015", "Xilinx 7" },
+	{ ZYNQID(0x07), ZYNQMASK, 6, "xc7x020", "Xilinx 7" },
+	{ ZYNQID(0x0c), ZYNQMASK, 6, "xc7x030", "Xilinx 7" },
+	{ ZYNQID(0x11), ZYNQMASK, 6, "xc7x045", "Xilinx 7" },
+	{ 0x13631093, 0xFFFFFFFF, 6, "xc7a100t", "Xilinx 7" },
 };
 
 JTAG_INFO *jtag_lookup_device(unsigned idcode) {
@@ -327,8 +327,8 @@ int jtag_enumerate(JTAG *jtag) {
 			return -1;
 		}
 		memcpy(jtag->devinfo + n, info, sizeof(JTAG_INFO));
-		fprintf(stderr, "device %02d idcode %08x '%s'\n",
-			n, info->idcode, info->name);
+		fprintf(stderr, "device %02d idcode: %08x name: %-16s family: %s\n",
+			n, info->idcode, info->name, info->family);
 	}
 	fprintf(stderr, "too many devices\n");
 	return -1;
@@ -374,5 +374,25 @@ int jtag_select_device(JTAG *jtag, unsigned idcode) {
 		}
 	}
 	return -1;
+}
+
+int jtag_select_by_family(JTAG *jtag, const char *family) {
+	int i, n;
+	int count = 0;
+	for (i = 0; i < jtag->devcount; i++) {
+		if (!strcmp(jtag->devinfo[i].family, family)) {
+			count++;
+			n = i;
+		}
+	}
+	if (count == 0) {
+		fprintf(stderr, "jtag: no devices of family '%s' found.\n", family);
+		return -1;
+	}
+	if (count > 1) {
+		fprintf(stderr, "jtag: multiple devices of family '%s' found.\n", family);
+		return -1;
+	}
+	return jtag_select_device_nth(jtag, n);	
 }
 

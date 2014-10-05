@@ -83,6 +83,7 @@ typedef struct {
 	unsigned idmask;
 	unsigned irsize;
 	const char *name;
+	const char *family;
 } JTAG_INFO;
 
 // reset the bus and probe it
@@ -98,5 +99,7 @@ int jtag_select_device(JTAG *jtag, unsigned idcode);
 
 // select by position in scan chain
 int jtag_select_device_nth(JTAG *jtag, int n);
+
+int jtag_select_by_family(JTAG *jtag, const char *family);
 
 #endif
