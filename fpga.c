@@ -171,38 +171,26 @@ static int fpga_rd_status(JTAG *jtag, u32 *status) {
 	return txn(jtag, tx, 5, status, 1);
 }
 
-// not quite working...
-static int fpga_shutdown(JTAG *jtag) {
-	u32 data[32], n;
-	u32 *tx = data;
+static int fpga_warm_boot(JTAG *jtag) {
+	u32 tx[8];
 
-	*tx++ = CFG_SYNC;
-	*tx++ = CFG_NOP;
-	*tx++ = CFG_WR(CR_MASK, 1);
-	*tx++ = 1;
-	*tx++ = CFG_WR(CR_CTL0, 1);
-	*tx++ = 0;
-	*tx++ = CFG_WR(CR_CMD, 1);
-	*tx++ = CMD_AGHIGH;
-	*tx++ = CFG_WR(CR_FAR, 1);
-	*tx++ = 0;
-	*tx++ = CFG_WR(CR_CMD, 1);
-	*tx++ = CMD_SHUTDOWN;
-	*tx++ = CFG_WR(CR_FAR, 1);
-	*tx++ = 0;
-	*tx++ = CFG_WR(CR_CMD, 1);
-	*tx++ = CMD_RCRC;
-	*tx++ = CFG_WR(CR_FAR, 1);
-	*tx++ = 0;
-	*tx++ = CFG_NOP;
-	*tx++ = CFG_NOP;
+	tx[0] = CFG_SYNC;
+	tx[1] = CFG_NOP;
+	tx[2] = CFG_WR(CR_CMD, 1);
+	tx[3] = CMD_IPROG;
+	tx[4] = CFG_WR(CR_FAR, 1);
+	tx[5] = 0;
+	tx[6] = CFG_NOP;
+	tx[7] = CFG_NOP;
 
-	if (txn(jtag, data, tx - data, NULL, 0)) return -1;
+	return txn(jtag, tx, 8, NULL, 0);
 
+#if 0
 	n = IR_JSHUTDOWN;
 	jtag_ir_wr(jtag, IR_LEN, &n);
 	jtag_idle(jtag, 12);
 	return jtag_commit(jtag);
+#endif
 }
 
 int main(int argc, char **argv) {
@@ -232,7 +220,20 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "status: %08x S%d\n", n, STAT_STATE(n));
 	if (data == NULL) return 0;
 
-	fprintf(stderr, "begin.\n");
+	fpga_warm_boot(jtag);
+
+	//TODO: detect ready via status register
+	usleep(100000);
+
+	n = 0;
+	if (fpga_rd_status(jtag, &n)) {
+		fprintf(stderr, "error: failed to read status\n");
+		return -1;
+	}
+	fprintf(stderr, "status: %08x S%d\n", n, STAT_STATE(n));
+
+	fprintf(stderr, "downloading...\n");
+	jtag_goto(jtag, JTAG_RESET);
 	n = IR_CFG_IN;
 	jtag_ir_wr(jtag, IR_LEN, &n);
 	jtag_dr_wr(jtag, sz * 8, data);
