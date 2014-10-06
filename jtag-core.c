@@ -346,7 +346,6 @@ int jtag_enumerate(JTAG *jtag) {
 		return -1;
 	}
 	for (n = 0; n < DEVMAX; n++) {
-
 		if (data[n] == 0xffffffff) {
 			if (n == 0) {
 				fprintf(stderr, "no devices found\n");
@@ -365,11 +364,18 @@ int jtag_enumerate(JTAG *jtag) {
 			return -1;
 		}
 		memcpy(jtag->devinfo + n, info, sizeof(JTAG_INFO));
-		fprintf(stderr, "device %02d idcode: %08x name: %-16s family: %s\n",
-			n, info->idcode, info->name, info->family);
 	}
 	fprintf(stderr, "too many devices\n");
 	return -1;
+}
+
+void jtag_print_chain(JTAG *jtag) {
+	int n;
+	for (n = 0; n < jtag->devcount; n++) {
+		JTAG_INFO *info = jtag->devinfo + n;
+		fprintf(stderr, "device %02d idcode: %08x name: %-16s family: %s\n",
+			n, info->idcode, info->name, info->family);
+	}
 }
 
 JTAG_INFO *jtag_get_nth_device(JTAG *jtag, int n) {
