@@ -95,6 +95,7 @@
 #define STAT_STATE(n)	(((n) >> 18) & 7)
 #define STAT_MODE(n)	(((n) >> 8) & 7)
 
+#if 0
 static void *loadfile(const char *fn, u32 *sz) {
 	int fd;
 	off_t end;
@@ -113,6 +114,7 @@ oops:
 	close(fd);
 	return NULL;
 }
+#endif
 
 static u8 bitrev(u8 x) {
 	x = (x << 4) | (x >> 4);
@@ -193,22 +195,9 @@ static int fpga_warm_boot(JTAG *jtag) {
 #endif
 }
 
-int main(int argc, char **argv) {
-	JTAG *jtag;
-	u8 *data = NULL;
-	u32 sz, n;
+int fpga_send_bitfile(JTAG *jtag, void *data, u32 sz) {
+	u32 n;
 
-	if (argc == 2) {
-		if ((data = loadfile(argv[1], &sz)) == NULL) {
-			fprintf(stderr, "error: cannot load '%s'\n", argv[1]);
-			return -1;
-		}
-		for (n = 0; n < sz; n++) {
-			data[n] = bitrev(data[n]);
-		}
-	}
-
-	if (jtag_mpsse_open(&jtag)) return -1;
 	if (jtag_enumerate(jtag) < 0) return -1;
 	if (jtag_select_by_family(jtag, "Xilinx 7")) return -1;
 
@@ -232,7 +221,7 @@ int main(int argc, char **argv) {
 	}
 	fprintf(stderr, "status: %08x S%d\n", n, STAT_STATE(n));
 
-	fprintf(stderr, "downloading...\n");
+	fprintf(stderr, "fpga: downloading...\n");
 	jtag_goto(jtag, JTAG_RESET);
 	n = IR_CFG_IN;
 	jtag_ir_wr(jtag, IR_LEN, &n);
@@ -254,9 +243,31 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	if (n & STAT_INIT_COMPLETE) {
-		fprintf(stderr, "init complete\n");
+		fprintf(stderr, "fpga: init complete\n");
+		return 0;
 	}
-
-	return 0;
+	return -1;
 }
 
+#if 0
+int main(int argc, char **argv) {
+	JTAG *jtag;
+	u8 *data = NULL;
+	u32 sz, n;
+
+	if (argc == 2) {
+		if ((data = loadfile(argv[1], &sz)) == NULL) {
+			fprintf(stderr, "error: cannot load '%s'\n", argv[1]);
+			return -1;
+		}
+		for (n = 0; n < sz; n++) {
+			data[n] = bitrev(data[n]);
+		}
+	}
+
+	if (jtag_mpsse_open(&jtag)) return -1;
+	if (jtag_enumerate(jtag) < 0) return -1;
+
+	return fpga_send_bitfile(jtag, data, sz);
+}
+#endif

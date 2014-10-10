@@ -49,10 +49,14 @@ int usage(void) {
 	fprintf(stderr,
 "zynq run <image>              download image to 0, resume cpu0 at 0\n"
 "zynq regs                     pause both cpus, dump registers, resume\n"
+"zynq reset                    reset the SoC\n"
+"zynq fpga <bitfile>           reset fpga and download bitfile to it\n"
 "\n"
 		);
 	return -1;
 }
+
+int fpga_send_bitfile(JTAG *jtag, void *data, u32 sz);
 
 int main(int argc, char **argv) {
 	JTAG *jtag;
@@ -67,6 +71,18 @@ int main(int argc, char **argv) {
 	}
 
 	if (jtag_mpsse_open(&jtag)) return -1;
+
+	if (!strcmp(argv[1], "fpga")) {
+		if (argc != 3) {
+			return usage();
+		}
+		if ((data = loadfile(argv[2], &sz)) == NULL) {
+			fprintf(stderr, "error: could not load '%s'\n", argv[2]);
+			return -1;
+		}
+		return fpga_send_bitfile(jtag, data, sz);
+	}
+
 	if ((dap = dap_init(jtag, 0x4ba00477)) == NULL) return -1;
 	if (dap_attach(dap)) return -1;
 	if ((d0 = debug_init(dap, ZYNQ_DEBUG0_APN, ZYNQ_DEBUG0_BASE)) == NULL) return -1;
@@ -98,7 +114,6 @@ int main(int argc, char **argv) {
 		debug_detach(d0);
 		debug_detach(d1);
 	} else if (!strcmp(argv[1], "reset")) {
-		u32 x;
 		dap_mem_wr32(dap, 0, 0xF8000008, 0xDF0D);
 		dap_mem_wr32(dap, 0, 0xF8000200, 1);
 	} else {
