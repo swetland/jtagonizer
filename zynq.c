@@ -56,7 +56,8 @@ int usage(void) {
 	return -1;
 }
 
-int fpga_send_bitfile(JTAG *jtag, void *data, u32 sz);
+int fpga_send_bitfile(JTAG *jtag, void *data, u32 sz, int warmboot);
+int fpga_prepare_bitfile(u8 *data, u32 sz);
 
 int main(int argc, char **argv) {
 	JTAG *jtag;
@@ -80,7 +81,8 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "error: could not load '%s'\n", argv[2]);
 			return -1;
 		}
-		return fpga_send_bitfile(jtag, data, sz);
+		fpga_prepare_bitfile(data, sz);
+		return fpga_send_bitfile(jtag, data, sz, 0);
 	}
 
 	if ((dap = dap_init(jtag, 0x4ba00477)) == NULL) return -1;

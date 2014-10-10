@@ -195,7 +195,15 @@ static int fpga_warm_boot(JTAG *jtag) {
 #endif
 }
 
-int fpga_send_bitfile(JTAG *jtag, void *data, u32 sz) {
+int fpga_prepare_bitfile(u8 *data, u32 sz) {
+	u32 n;
+	for (n = 0; n < sz; n++) {
+		data[n] = bitrev(data[n]);
+	}
+	return 0;
+}
+
+int fpga_send_bitfile(JTAG *jtag, void *data, u32 sz, int warmboot) {
 	u32 n;
 
 	if (jtag_enumerate(jtag) < 0) return -1;
@@ -209,17 +217,19 @@ int fpga_send_bitfile(JTAG *jtag, void *data, u32 sz) {
 	fprintf(stderr, "status: %08x S%d\n", n, STAT_STATE(n));
 	if (data == NULL) return 0;
 
-	fpga_warm_boot(jtag);
+	if (warmboot) {
+		fpga_warm_boot(jtag);
 
-	//TODO: detect ready via status register
-	usleep(100000);
+		//TODO: detect ready via status register
+		usleep(100000);
 
-	n = 0;
-	if (fpga_rd_status(jtag, &n)) {
-		fprintf(stderr, "error: failed to read status\n");
-		return -1;
+		n = 0;
+		if (fpga_rd_status(jtag, &n)) {
+			fprintf(stderr, "error: failed to read status\n");
+			return -1;
+		}
+		fprintf(stderr, "status: %08x S%d\n", n, STAT_STATE(n));
 	}
-	fprintf(stderr, "status: %08x S%d\n", n, STAT_STATE(n));
 
 	fprintf(stderr, "fpga: downloading...\n");
 	jtag_goto(jtag, JTAG_RESET);
