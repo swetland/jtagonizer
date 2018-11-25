@@ -72,6 +72,8 @@ int main(int argc, char **argv) {
 	}
 
 	if (jtag_mpsse_open(&jtag)) return -1;
+	jtag_enumerate(jtag);
+	jtag_print_chain(jtag);
 
 	if (!strcmp(argv[1], "fpga")) {
 		if (argc != 3) {

@@ -93,6 +93,8 @@ typedef struct {
 // returns number of devices detected, negative on error
 int jtag_enumerate(JTAG *jtag);
 
+void jtag_print_chain(JTAG *jtag);
+
 // get information about the nth device on the chain
 JTAG_INFO *jtag_get_nth_device(JTAG *jtag, int n);
 

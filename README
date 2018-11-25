@@ -12,8 +12,11 @@ zynq reset            - reboot the chip
 zynq regs             - briefly stop both CPUs and report their state
 zynq run <image>      - halt CPU0, download image to 0 (OCR), resume pc=0
 
-fpga - Xilinx 7-Series FPGA downloader
+zynq - Xilinx 7-Series FPGA downloader
 --------------------------------------
-fpga                  - print the status register
-fpga <bitfile>        - reset part and download bitfile
+zynq fpga <bitfile>   - reset part and download bitfile
 
+debug - JTAG debug register tool (check debug.c comments)
+---------------------------------------------------------
+debug write <addr> <val>
+debug read <addr>
